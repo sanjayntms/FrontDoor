@@ -1,3 +1,34 @@
 #!/bin/bash
-# (Script content from previous response)
-echo "This is a placeholder for upload_images.sh"
+
+RESOURCE_GROUP="ntms-frontdoor-rg"
+STORAGE_NAME="ntmsimages$(openssl rand -hex 3)"
+LOCATION="centralindia"
+CONTAINER_NAME="images"
+
+# Create Storage Account
+az storage account create \
+  --name $STORAGE_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --location $LOCATION \
+  --sku Standard_LRS \
+  --kind StorageV2
+
+# Get key
+STORAGE_KEY=$(az storage account keys list --resource-group $RESOURCE_GROUP --account-name $STORAGE_NAME --query "[0].value" -o tsv)
+
+# Create Blob Container
+az storage container create \
+  --name $CONTAINER_NAME \
+  --account-name $STORAGE_NAME \
+  --account-key $STORAGE_KEY \
+  --public-access blob
+
+# Upload all images from local /images folder
+for image in images/*; do
+  az storage blob upload \
+    --account-name $STORAGE_NAME \
+    --account-key $STORAGE_KEY \
+    --container-name $CONTAINER_NAME \
+    --name $(basename $image) \
+    --file $image
+done
