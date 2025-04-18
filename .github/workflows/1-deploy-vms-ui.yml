@@ -73,18 +73,28 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    - name: Get VM IPs
+      run: |
+          web1_IP=$(az vm show -d -g $RESOURCE_GROUP -n web1 --query publicIps -o tsv)
+          web2_IP=$(az vm show -d -g $RESOURCE_GROUP -n web2 --query publicIps -o tsv)
+          web3_IP=$(az vm show -d -g $RESOURCE_GROUP -n web3 --query publicIps -o tsv)
+          echo "web1_IP=$web1_IP" >> $GITHUB_ENV
+          echo "web2_IP=$web2_IP" >> $GITHUB_ENV
+          echo "web3_IP=$web3_IP" >> $GITHUB_ENV
+    
+    - name: Install sshpass
+      run: sudo apt-get update && sudo apt-get install -y sshpass
 
     - name: Deploy app files to all web VMs
       run: |
-          for ip in $web1_IP $web2_IP $web3_IP; do
-          sshpass -p "${{ secrets.VM_PASSWORD }}" scp -o StrictHostKeyChecking=no index.html azureuser@$ip:/home/azureuser/
-          sshpass -p "${{ secrets.VM_PASSWORD }}" ssh -o StrictHostKeyChecking=no azureuser@$ip << EOF
-          sudo apt update
-          sudo apt install -y nginx
-          sudo mv /home/azureuser/index.html /var/www/html/index.html
-          sudo systemctl reload nginx
-          EOF
-          done
+       echo "Deploying to: $web1_IP, $web2_IP, $web3_IP"
+       ls -l index.html
+       for ip in $web1_IP $web2_IP $web3_IP; do
+       echo "Deploying to $ip"
+       sshpass -p "${{ secrets.VM_PASSWORD }}" scp -o StrictHostKeyChecking=no index.html azureuser@$ip:/home/azureuser/
+       sshpass -p "${{ secrets.VM_PASSWORD }}" ssh -o StrictHostKeyChecking=no azureuser@$ip \
+       "sudo apt update && sudo apt install -y nginx && sudo mv /home/azureuser/index.html /var/www/html/index.html && sudo systemctl reload nginx"
+       done
 
        
        
