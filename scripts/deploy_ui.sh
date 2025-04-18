@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-RESOURCE_GROUP="ntms-frontdoor-rg"
+RESOURCE_GROUP="ntms-frontdoor-rg1"
 LOCATIONS=("centralindia" "eastus" "australiaeast")
 VNET_NAME="ntms-vnet"
 SUBNET_NAME="websubnet"
