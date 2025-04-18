@@ -85,15 +85,16 @@ jobs:
     - name: Install sshpass
       run: sudo apt-get update && sudo apt-get install -y sshpass
 
-    - name: Deploy app files to all web VMs
-      run: |
-       echo "Deploying to: $web1_IP, $web2_IP, $web3_IP"
-       ls -l index.html
        for ip in $web1_IP $web2_IP $web3_IP; do
        echo "Deploying to $ip"
-       sshpass -p "${{ secrets.VM_PASSWORD }}" scp -o StrictHostKeyChecking=no index.html azureuser@$ip:/home/azureuser/
-       sshpass -p "${{ secrets.VM_PASSWORD }}" ssh -o StrictHostKeyChecking=no azureuser@$ip \
-       "sudo apt update && sudo apt install -y nginx && sudo mv /home/azureuser/index.html /var/www/html/index.html && sudo systemctl reload nginx"
+       sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no index.html azureuser@$ip:/home/azureuser/
+
+       sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip \
+       "while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do echo 'Waiting for apt lock...'; sleep 5; done && \
+       sudo apt update && \
+       sudo apt install -y nginx && \
+       sudo mv /home/azureuser/index.html /var/www/html/index.html && \
+       sudo systemctl reload nginx"
        done
 
        
