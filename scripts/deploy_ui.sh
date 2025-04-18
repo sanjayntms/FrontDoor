@@ -1,13 +1,5 @@
 #!/bin/bash
 set -e
-echo "📦 Checking resource group: $RESOURCE_GROUP"
-
-if ! az group show --name $RESOURCE_GROUP &>/dev/null; then
-  echo "🔹 Creating resource group: $RESOURCE_GROUP"
-  az group create --name $RESOURCE_GROUP --location centralindia
-else
-  echo "✅ Resource group exists: $RESOURCE_GROUP"
-fi
 
 RESOURCE_GROUP="ntms-frontdoor-rg"
 LOCATIONS=("centralindia" "eastus" "australiaeast")
@@ -17,6 +9,14 @@ VM_ADMIN="azureuser"
 VM_PASSWORD="Ntms@12345!"
 VM_IMAGE="Ubuntu2204"
 VM_SIZE="Standard_B1s"
+echo "📦 Checking resource group: $RESOURCE_GROUP"
+
+if ! az group show --name $RESOURCE_GROUP &>/dev/null; then
+  echo "🔹 Creating resource group: $RESOURCE_GROUP"
+  az group create --name $RESOURCE_GROUP --location centralindia
+else
+  echo "✅ Resource group exists: $RESOURCE_GROUP"
+fi
 
 
 # Get subnet ID
