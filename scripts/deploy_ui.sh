@@ -18,8 +18,7 @@ VM_PASSWORD="Ntms@12345!"
 VM_IMAGE="Ubuntu2204"
 VM_SIZE="Standard_B1s"
 
-# Create Resource Group
-az group create --name $RESOURCE_GROUP --location eastus
+
 # Get subnet ID
 SUBNET_ID=$(az network vnet subnet show \
   --resource-group $RESOURCE_GROUP \
