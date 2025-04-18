@@ -84,7 +84,8 @@ jobs:
     
     - name: Install sshpass
       run: sudo apt-get update && sudo apt-get install -y sshpass
-
+    - name: Deploy app files to all web VMs
+      run: | 
        for ip in $web1_IP $web2_IP $web3_IP; do
        echo "Deploying to $ip"
        sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no index.html azureuser@$ip:/home/azureuser/
