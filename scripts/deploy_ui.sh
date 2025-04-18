@@ -1,5 +1,13 @@
 #!/bin/bash
 set -e
+echo "📦 Checking resource group: $RESOURCE_GROUP"
+
+if ! az group show --name $RESOURCE_GROUP &>/dev/null; then
+  echo "🔹 Creating resource group: $RESOURCE_GROUP"
+  az group create --name $RESOURCE_GROUP --location centralindia
+else
+  echo "✅ Resource group exists: $RESOURCE_GROUP"
+fi
 
 RESOURCE_GROUP="ntms-frontdoor-rg"
 LOCATIONS=("centralindia" "eastus" "australiaeast")
