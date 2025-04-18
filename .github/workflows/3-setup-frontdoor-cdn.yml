@@ -1,10 +1,132 @@
-name: Setup Front Door with CDN Rules
-on: [workflow_dispatch]
+name: 🔁 Setup Front Door with CDN Routing
+
+on:
+  workflow_dispatch:
+
+env:
+  RESOURCE_GROUP: fd-rg
+  LOCATION: centralindia
+  FRONTDOOR_NAME: ntms-frontdoor
+  FRONTEND_HOSTNAME: ntmsfd-frontend
+  STORAGE_TRACK_FILE: .storage_name
+  CONTAINER_NAME: images
+
 jobs:
   setup-frontdoor:
     runs-on: ubuntu-latest
     steps:
-      - uses: azure/login@v1
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@v3
+
+      - name: 🔐 Azure Login
+        uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-      - run: echo "Add your az network front-door setup commands here"
+
+      - name: 📦 Restore tracked storage account name
+        id: storage
+        run: |
+          if [[ -f "${{ env.STORAGE_TRACK_FILE }}" ]]; then
+            STORAGE_NAME=$(cat "${{ env.STORAGE_TRACK_FILE }}")
+            echo "STORAGE_NAME=$STORAGE_NAME" >> $GITHUB_ENV
+          else
+            echo "❌ Storage name tracking file not found!"
+            exit 1
+          fi
+
+      - name: 🌐 Create Front Door Profile (Standard/Premium)
+        run: |
+          az network front-door profile create \
+            --resource-group $RESOURCE_GROUP \
+            --name $FRONTDOOR_NAME \
+            --sku Premium_AzureFrontDoor \
+            --location $LOCATION \
+            --no-wait
+
+      - name: 🕒 Wait for Front Door Profile to be ready
+        run: |
+          az network front-door profile show \
+            --resource-group $RESOURCE_GROUP \
+            --name $FRONTDOOR_NAME \
+            --query provisioningState -o tsv
+
+      - name: 🌍 Create Endpoints for VM and Storage
+        run: |
+          # VMs assumed to be created already
+          VM_ENDPOINT_1=$(az vm show -d -g $RESOURCE_GROUP -n web1 --query publicIps -o tsv)
+          VM_ENDPOINT_2=$(az vm show -d -g $RESOURCE_GROUP -n web2 --query publicIps -o tsv)
+          VM_ENDPOINT_3=$(az vm show -d -g $RESOURCE_GROUP -n web3 --query publicIps -o tsv)
+          STORAGE_ENDPOINT="https://${STORAGE_NAME}.blob.core.windows.net/${CONTAINER_NAME}"
+          echo "VM_ENDPOINT_1=$VM_ENDPOINT_1" >> $GITHUB_ENV
+          echo "VM_ENDPOINT_2=$VM_ENDPOINT_2" >> $GITHUB_ENV
+          echo "STORAGE_ENDPOINT=$STORAGE_ENDPOINT" >> $GITHUB_ENV
+
+      - name: 🌐 Create Front Door Origin Group
+        run: |
+          az network front-door origin-group create \
+            --resource-group $RESOURCE_GROUP \
+            --profile-name $FRONTDOOR_NAME \
+            --name originGroup1 \
+            --probe-path "/" \
+            --probe-protocol Http \
+            --probe-method GET
+
+      - name: ➕ Add Origins (VMs + Storage with routing rules)
+        run: |
+          az network front-door origin create \
+            --resource-group $RESOURCE_GROUP \
+            --profile-name $FRONTDOOR_NAME \
+            --origin-group-name originGroup1 \
+            --name vm-central \
+            --host-name $VM_ENDPOINT_1 \
+            --priority 1 \
+            --weight 100 \
+            --enabled-state Enabled
+
+          az network front-door origin create \
+            --resource-group $RESOURCE_GROUP \
+            --profile-name $FRONTDOOR_NAME \
+            --origin-group-name originGroup1 \
+            --name vm-east \
+            --host-name $VM_ENDPOINT_2 \
+            --priority 2 \
+            --weight 50 \
+            --enabled-state Enabled
+
+          az network front-door origin create \
+            --resource-group $RESOURCE_GROUP \
+            --profile-name $FRONTDOOR_NAME \
+            --origin-group-name originGroup1 \
+            --name cdn-storage \
+            --host-name "${STORAGE_NAME}.blob.core.windows.net" \
+            --http-port 80 \
+            --https-port 443 \
+            --weight 30 \
+            --priority 3 \
+            --enabled-state Enabled
+
+      - name: 🧭 Create Front Door Route with CDN Rules
+        run: |
+          az network front-door route create \
+            --resource-group $RESOURCE_GROUP \
+            --profile-name $FRONTDOOR_NAME \
+            --endpoint-name default \
+            --name route1 \
+            --origin-group originGroup1 \
+            --custom-domains "" \
+            --route-type Forwarding \
+            --https-redirect Enabled \
+            --forwarding-protocol MatchRequest \
+            --patterns-to-match "/*" \
+            --supported-protocols Http Https \
+            --enabled-state Enabled \
+            --cdn-compression Enabled
+
+      - name: 📤 Output Front Door endpoint
+        run: |
+          FD_HOSTNAME=$(az network front-door endpoint show \
+            --resource-group $RESOURCE_GROUP \
+            --profile-name $FRONTDOOR_NAME \
+            --name default \
+            --query hostName -o tsv)
+          echo "🌐 Front Door Endpoint: https://$FD_HOSTNAME"
