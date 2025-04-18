@@ -1,0 +1,10 @@
+name: Setup Front Door with CDN Rules
+on: [workflow_dispatch]
+jobs:
+  setup-frontdoor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - run: echo "Add your az network front-door setup commands here"

@@ -1,0 +1,11 @@
+name: Deploy Web VMs
+on: [workflow_dispatch]
+jobs:
+  deploy-web-vms:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - run: bash scripts/deploy_ui.sh
