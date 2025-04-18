@@ -97,6 +97,16 @@ jobs:
             --resource-group $RESOURCE_GROUP \
             --profile-name $FRONTDOOR_NAME \
             --origin-group-name originGroup1 \
+            --name vm-east \
+            --host-name $VM_ENDPOINT_3 \
+            --priority 3 \
+            --weight 50 \
+            --enabled-state Enabled  
+
+          az network front-door origin create \
+            --resource-group $RESOURCE_GROUP \
+            --profile-name $FRONTDOOR_NAME \
+            --origin-group-name originGroup1 \
             --name cdn-storage \
             --host-name "${STORAGE_NAME}.blob.core.windows.net" \
             --http-port 80 \
