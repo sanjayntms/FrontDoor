@@ -17,11 +17,20 @@ az storage account create \
 STORAGE_KEY=$(az storage account keys list --resource-group $RESOURCE_GROUP --account-name $STORAGE_NAME --query "[0].value" -o tsv)
 
 # Create Blob Container
-az storage container create \
-  --name $CONTAINER_NAME \
-  --account-name $STORAGE_NAME \
-  --account-key $STORAGE_KEY \
-  --public-access blob
+echo "Creating container: $CONTAINER_NAME in account: $STORAGE_NAME"
+container_create_output=$(az storage container create \
+  --name "$CONTAINER_NAME" \
+  --account-name "$STORAGE_NAME" \
+  --account-key "$STORAGE_KEY" \
+  --public-access blob 2>&1)
+
+if [[ $? -ne 0 ]]; then
+  echo "❌ Failed to create container: $container_create_output"
+  exit 1
+else
+  echo "✅ Container ensured: $CONTAINER_NAME"
+fi
+
 
 # Upload all images from local /images folder
 for image in images/*; do
