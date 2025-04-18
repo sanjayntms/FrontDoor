@@ -1,114 +1,92 @@
-#!/bin/bash
-set -e
+name: Deploy VMs
 
-RESOURCE_GROUP="ntms-frontdoor-rg"
-LOCATIONS=("centralindia" "eastus" "australiaeast")
-VNET_NAME="ntms-vnet"
-SUBNET_NAME="websubnet"
-VM_ADMIN="azureuser"
-VM_PASSWORD="123#ntms123#"
-VM_IMAGE="Ubuntu2204"
-VM_SIZE="Standard_B1s"
-echo "📦 Checking resource group: $RESOURCE_GROUP"
+on:
+  workflow_dispatch:
 
-if ! az group show --name $RESOURCE_GROUP &>/dev/null; then
-  echo "🔹 Creating resource group: $RESOURCE_GROUP"
-  az group create --name $RESOURCE_GROUP --location centralindia
-else
-  echo "✅ Resource group exists: $RESOURCE_GROUP"
-fi
+env:
+  RESOURCE_GROUP: fd-rg
+  IMAGE: Ubuntu2204
+  VM_SIZE: Standard_B1s
+  ADMIN_USERNAME: azureuser
+  VM_PASSWORD: ${{ secrets.VM_PASSWORD }}
+  
+jobs:
+  create-resources:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-# VNet
-echo "🌐 Checking VNet: $VNET_NAME"
-if ! az network vnet show --resource-group $RESOURCE_GROUP --name $VNET_NAME &>/dev/null; then
-  echo "🔹 Creating VNet: $VNET_NAME"
-  az network vnet create \
-    --resource-group $RESOURCE_GROUP \
-    --name $VNET_NAME \
-    --address-prefix 10.0.0.0/16 \
-    --subnet-name $SUBNET_NAME \
-    --subnet-prefix 10.0.1.0/24 \
-    --location centralindia
-else
-  echo "✅ VNet exists: $VNET_NAME"
-fi
-# Get subnet ID
-SUBNET_ID=$(az network vnet subnet show \
-  --resource-group $RESOURCE_GROUP \
-  --vnet-name $VNET_NAME \
-  --name $SUBNET_NAME \
-  --query id -o tsv)
+    - name: Create Resource Group
+      run: |
+        az group create --name $RESOURCE_GROUP --location centralindia
+    
+    
+  deploy-vms:
+    needs: create-resources
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - LOCATION: centralindia
+            VM_NAME: web1
+          - LOCATION: eastus
+            VM_NAME: web2
+          - LOCATION: australiaeast
+            VM_NAME: web3
 
-for REGION in "${LOCATIONS[@]}"; do
-  VM_NAME="webvm-${REGION}"
-  IP_NAME="pip-${VM_NAME}"
-  NIC_NAME="nic-${VM_NAME}"
+    steps:
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-  echo "⚙️ Processing VM: $VM_NAME ($REGION)"
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-  # Public IP
-  if ! az network public-ip show --resource-group $RESOURCE_GROUP --name $IP_NAME &>/dev/null; then
-    echo "🔹 Creating public IP: $IP_NAME"
-    az network public-ip create \
-      --resource-group $RESOURCE_GROUP \
-      --name $IP_NAME \
-      --location $REGION \
-      --allocation-method Static \
-      --sku Basic
-  else
-    echo "✅ Public IP exists: $IP_NAME"
-  fi
+    - name: Create VM (idempotent)
+      run: |
+        if ! az vm show --name ${{ matrix.VM_NAME }} --resource-group $RESOURCE_GROUP &>/dev/null; then
+          az vm create \
+            --resource-group $RESOURCE_GROUP \
+            --name ${{ matrix.VM_NAME }} \
+            --image $IMAGE \
+            --admin-username $ADMIN_USERNAME \
+            --admin-password $VM_PASSWORD \
+            --location ${{ matrix.LOCATION }} \
+            --size $VM_SIZE \
+            --public-ip-sku Standard \
+            --authentication-type password \
+            --nsg-rule SSH
+         fi
 
-  # NIC
-  if ! az network nic show --resource-group $RESOURCE_GROUP --name $NIC_NAME &>/dev/null; then
-    echo "🔹 Creating NIC: $NIC_NAME"
-    az network nic create \
-      --resource-group $RESOURCE_GROUP \
-      --name $NIC_NAME \
-      --vnet-name $VNET_NAME \
-      --subnet $SUBNET_NAME \
-      --location $REGION \
-      --public-ip-address $IP_NAME
-  else
-    echo "✅ NIC exists: $NIC_NAME"
-  fi
+         # Ensure HTTP (port 80) is also allowed
+         az vm open-port --port 80 --resource-group $RESOURCE_GROUP --name ${{ matrix.VM_NAME }}
+        
+    
 
-  # VM
-  if ! az vm show --resource-group $RESOURCE_GROUP --name $VM_NAME &>/dev/null; then
-    echo "🔹 Creating VM: $VM_NAME"
-    az vm create \
-      --resource-group $RESOURCE_GROUP \
-      --name $VM_NAME \
-      --location $REGION \
-      --nics $NIC_NAME \
-      --image $VM_IMAGE \
-      --admin-username $VM_ADMIN \
-      --admin-password $VM_PASSWORD \
-      --authentication-type password \
-      --size $VM_SIZE \
-      --no-wait
-  else
-    echo "✅ VM already exists: $VM_NAME"
-  fi
-done
+    - name: Install sshpass
+      run: sudo apt-get update && sudo apt-get install -y sshpass
+    
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-echo "⏳ Waiting for VMs to be ready..."
-az vm wait --created --ids $(az vm list --resource-group $RESOURCE_GROUP --query "[].id" -o tsv)
 
-# Deploy index.html content to each VM
-for REGION in "${LOCATIONS[@]}"; do
-  VM_NAME="webvm-${REGION}"
+    - name: Deploy app files to all web VMs
+      run: |
+          for ip in $web1_IP $web2_IP $web3_IP; do
+          sshpass -p "${{ secrets.VM_PASSWORD }}" scp -o StrictHostKeyChecking=no index.html azureuser@$ip:/home/azureuser/
+          sshpass -p "${{ secrets.VM_PASSWORD }}" ssh -o StrictHostKeyChecking=no azureuser@$ip << EOF
+          sudo apt update
+          sudo apt install -y nginx
+          sudo mv /home/azureuser/index.html /var/www/html/index.html
+          sudo systemctl reload nginx
+          EOF
+          done
 
-  echo "🌐 Installing NGINX and deploying HTML on $VM_NAME..."
-
-  az vm run-command invoke \
-    --resource-group $RESOURCE_GROUP \
-    --name $VM_NAME \
-    --command-id RunShellScript \
-    --scripts '
-      sudo apt update && sudo apt install -y nginx
-      echo "'"$(<index.html)"'" | sudo tee /var/www/html/index.html > /dev/null
-    '
-done
-
-echo "✅ Idempotent VM deployment + UI completed!"
+       
+       
+    
+    
