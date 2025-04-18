@@ -6,7 +6,7 @@ LOCATIONS=("centralindia" "eastus" "australiaeast")
 VNET_NAME="ntms-vnet"
 SUBNET_NAME="websubnet"
 VM_ADMIN="azureuser"
-VM_PASSWORD="Ntms@12345!"
+VM_PASSWORD="123#ntms123#"
 VM_IMAGE="Ubuntu2204"
 VM_SIZE="Standard_B1s"
 echo "📦 Checking resource group: $RESOURCE_GROUP"
