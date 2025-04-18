@@ -94,7 +94,7 @@ jobs:
        "while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do echo 'Waiting for apt lock...'; sleep 5; done && \
        sudo apt update && \
        sudo apt install -y nginx && \
-       sudo mv /home/azureuser/index.html /var/www/html/index.html && \
+       sudo cp /home/azureuser/index.html /var/www/html/index.html && \
        sudo systemctl reload nginx"
        done
 
