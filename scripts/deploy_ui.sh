@@ -18,7 +18,20 @@ else
   echo "✅ Resource group exists: $RESOURCE_GROUP"
 fi
 
-
+# VNet
+echo "🌐 Checking VNet: $VNET_NAME"
+if ! az network vnet show --resource-group $RESOURCE_GROUP --name $VNET_NAME &>/dev/null; then
+  echo "🔹 Creating VNet: $VNET_NAME"
+  az network vnet create \
+    --resource-group $RESOURCE_GROUP \
+    --name $VNET_NAME \
+    --address-prefix 10.0.0.0/16 \
+    --subnet-name $SUBNET_NAME \
+    --subnet-prefix 10.0.1.0/24 \
+    --location centralindia
+else
+  echo "✅ VNet exists: $VNET_NAME"
+fi
 # Get subnet ID
 SUBNET_ID=$(az network vnet subnet show \
   --resource-group $RESOURCE_GROUP \
