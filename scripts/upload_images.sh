@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RESOURCE_GROUP="ntms-frontdoor-rg"
+RESOURCE_GROUP="fd-rg"
 STORAGE_NAME="ntmsimages$(openssl rand -hex 3)"
 LOCATION="centralindia"
 CONTAINER_NAME="images"
