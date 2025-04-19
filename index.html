@@ -56,6 +56,7 @@
 <body>
   <h1>🌐 NTMS Azure Front Door 3D Image Gallery with Load Times</h1>
   <div class="server">Served by: <span id="server-name">{{SERVER_NAME}}- Location: {{LOCATION}} </span></div>
+  <div id="cache-status">Cache Status: Checking...</div>
   <div class="gallery" id="gallery"></div>
 
   <script>
@@ -86,6 +87,18 @@
         gallery.appendChild(card);
       };
     }
+     async function checkCacheStatus() {
+      try {
+        const response = await fetch(window.location.href, { method: 'HEAD', cache: 'reload' });
+        const cacheStatus = response.headers.get('x-cache') || 'UNKNOWN';
+        document.getElementById('cache-status').textContent = 'Cache Status: ' + cacheStatus;
+      } catch (error) {
+        document.getElementById('cache-status').textContent = 'Cache Status: Error checking';
+        console.error('Failed to fetch headers:', error);
+      }
+    }
+
+    checkCacheStatus();
   </script>
 </body>
 </html>
