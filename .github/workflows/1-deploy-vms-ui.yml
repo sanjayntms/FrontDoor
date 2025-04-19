@@ -87,6 +87,9 @@ jobs:
     
     - name: Deploy app files to all web VMs
       run: |
+       #!/usr/bin/bash -e
+
+       # Loop through each IP (single loop)
        for ip in $web1_IP $web2_IP $web3_IP; do
        echo "🚀 Deploying to $ip"
 
@@ -97,37 +100,38 @@ jobs:
 
        # SSH into VM and setup
        sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip "
-        while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do echo 'Waiting for apt lock...'; sleep 5; done && \
-        sudo rm -f /var/cache/apt/*.bin && \
-        sudo apt update && \
-        sudo apt update && \
-        sudo apt install -y jq nginx && \
+       # Wait for apt lock with a timeout (max 60 seconds)
+       timeout 60s bash -c 'while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do echo \"Waiting for apt lock...\"; sleep 5; done' || { echo '❌ Apt lock timeout'; exit 1; } && \
+       sudo rm -f /var/cache/apt/*.bin && \
+       sudo apt update && \
+       sudo apt install -y jq nginx && \
 
-        PUBLIC_IP=\$(curl -s ifconfig.me) && \
-        LOCATION=\$(curl -s \"http://ipinfo.io/\$PUBLIC_IP/json\" | jq -r '.city + \", \" + .region + \", \" + .country') && \
-        SERVER_NAME=\$(hostname) && \
+       PUBLIC_IP=\$(curl -s ifconfig.me) && \
+       LOCATION=\$(curl -s \"http://ipinfo.io/\$PUBLIC_IP/json\" | jq -r '.city + \", \" + .region + \", \" + .country') && \
+       SERVER_NAME=\$(hostname) && \
 
-        sed \"s/{{SERVER_NAME}}/\$SERVER_NAME/g\" /home/azureuser/index.html > /home/azureuser/index.tmp.html && \
-        sed \"s/{{LOCATION}}/\$LOCATION/g\" /home/azureuser/index.tmp.html > /home/azureuser/index.final.html && \
+       sed \"s/***SERVER_NAME***/\$SERVER_NAME/g\" /home/azureuser/index.html > /home/azureuser/index.tmp.html && \
+       sed \"s/***LOCATION***/\$LOCATION/g\" /home/azureuser/index.tmp.html > /home/azureuser/index.final.html && \
 
-        sudo mkdir -p /var/www/html/images && \
-        sudo cp /home/azureuser/index.final.html /var/www/html/index.html && \
-        sudo cp /home/azureuser/images/* /var/www/html/images/ && \
-        # Create cache_images.conf with cache headers
-        sudo tee /etc/nginx/conf.d/cache_images.conf > /dev/null <<'EOF'
-        server {
-            listen 80;
-            server_name localhost;
+       sudo mkdir -p /var/www/html/images && \
+       sudo cp /home/azureuser/index.final.html /var/www/html/index.html && \
+       sudo cp /home/azureuser/images/* /var/www/html/images/ && \
 
-            location /images/ {
-                root /var/www/html;
-                add_header Cache-Control 'public, max-age=31536000, immutable';
-                access_log off;
-            }
-        }
+       # Create cache_images.conf with cache headers
+       sudo tee /etc/nginx/conf.d/cache_images.conf > /dev/null <<EOF
+       server {
+         listen 80;
+         server_name localhost;
+
+         location /images/ {
+           root /var/www/html;
+           add_header Cache-Control 'public, max-age=31536000, immutable';
+           access_log off;
+           }
+         }
         EOF
 
         # Reload nginx if config is valid
-        sudo nginx -t && sudo systemctl reload nginx || echo '❌ nginx config test failed'
+        sudo nginx -t && sudo systemctl reload nginx || { echo '❌ nginx config test failed'; exit 1; }
         "
-        done
+       done
