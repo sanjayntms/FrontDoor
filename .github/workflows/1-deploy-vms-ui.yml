@@ -85,19 +85,38 @@ jobs:
     - name: Install sshpass
       run: sudo apt-get update && sudo apt-get install -y sshpass
     - name: Deploy app files to all web VMs
-      run: | 
-        for ip in $web1_IP $web2_IP $web3_IP; do
-        echo "Deploying to $ip"
-        sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no index.html azureuser@$ip:/home/azureuser/
+  run: |
+    for ip in $web1_IP $web2_IP $web3_IP; do
+      echo "Deploying to $ip"
 
-        sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip \
-        "while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do echo 'Waiting for apt lock...'; sleep 5; done && \
+      sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no index.html azureuser@$ip:/home/azureuser/
+      sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip "mkdir -p /home/azureuser/images"
+      sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no images/* azureuser@$ip:/home/azureuser/images/
+
+      sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip "
+        while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do echo 'Waiting for apt lock...'; sleep 5; done && \
         sudo rm -f /var/cache/apt/*.bin && \
         sudo apt update && \
         sudo apt install -y nginx && \
         sudo cp /home/azureuser/index.html /var/www/html/index.html && \
-        sudo systemctl reload nginx"
+        sudo mkdir -p /var/www/html/images && \
+        sudo cp /home/azureuser/images/* /var/www/html/images/ && \
+
+        # Add CDN cache headers for /images path
+        sudo bash -c 'cat > /etc/nginx/conf.d/cache_images.conf <<EOF 
+        location /images/ {
+        root /var/www/html;
+        add_header Cache-Control \"public, max-age=31536000, immutable\";
+        add_header Expires \$expires_years 1;
+        access_log off; 
+        } 
+        EOF' && \
+
+        sudo nginx -t && \
+        sudo systemctl reload nginx
+        "
         done
+
 
 
        
