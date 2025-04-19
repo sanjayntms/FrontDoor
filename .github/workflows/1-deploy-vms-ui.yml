@@ -9,21 +9,20 @@ env:
   VM_SIZE: Standard_B1s
   ADMIN_USERNAME: azureuser
   VM_PASSWORD: ${{ secrets.VM_PASSWORD }}
-  
+
 jobs:
   create-resources:
     runs-on: ubuntu-latest
     steps:
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Create Resource Group
-      run: |
-        az group create --name $RESOURCE_GROUP --location centralindia
-    
-    
+      - name: Create Resource Group
+        run: |
+          az group create --name $RESOURCE_GROUP --location centralindia
+
   deploy-vms:
     needs: create-resources
     runs-on: ubuntu-latest
@@ -38,112 +37,108 @@ jobs:
             VM_NAME: web3
 
     steps:
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Create VM (idempotent)
-      run: |
-        if ! az vm show --name ${{ matrix.VM_NAME }} --resource-group $RESOURCE_GROUP &>/dev/null; then
-          az vm create \
-            --resource-group $RESOURCE_GROUP \
-            --name ${{ matrix.VM_NAME }} \
-            --image $IMAGE \
-            --admin-username $ADMIN_USERNAME \
-            --admin-password $VM_PASSWORD \
-            --location ${{ matrix.LOCATION }} \
-            --size $VM_SIZE \
-            --public-ip-sku Standard \
-            --authentication-type password \
-            --nsg-rule SSH
-         fi
+      - name: Create VM (idempotent)
+        run: |
+          if ! az vm show --name ${{ matrix.VM_NAME }} --resource-group $RESOURCE_GROUP &>/dev/null; then
+            az vm create \
+              --resource-group $RESOURCE_GROUP \
+              --name ${{ matrix.VM_NAME }} \
+              --image $IMAGE \
+              --admin-username $ADMIN_USERNAME \
+              --admin-password $VM_PASSWORD \
+              --location ${{ matrix.LOCATION }} \
+              --size $VM_SIZE \
+              --public-ip-sku Standard \
+              --authentication-type password \
+              --nsg-rule SSH
+          fi
 
-         # Ensure HTTP (port 80) is also allowed
-         az vm open-port --port 80 --resource-group $RESOURCE_GROUP --name ${{ matrix.VM_NAME }}
-        
-    
+          az vm open-port --port 80 --resource-group $RESOURCE_GROUP --name ${{ matrix.VM_NAME }}
 
-    - name: Install sshpass
-      run: sudo apt-get update && sudo apt-get install -y sshpass
-    
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
 
-    - name: Get VM IPs
-      run: |
-          web1_IP=$(az vm show -d -g $RESOURCE_GROUP -n web1 --query publicIps -o tsv)
-          web2_IP=$(az vm show -d -g $RESOURCE_GROUP -n web2 --query publicIps -o tsv)
-          web3_IP=$(az vm show -d -g $RESOURCE_GROUP -n web3 --query publicIps -o tsv)
-          echo "web1_IP=$web1_IP" >> $GITHUB_ENV
-          echo "web2_IP=$web2_IP" >> $GITHUB_ENV
-          echo "web3_IP=$web3_IP" >> $GITHUB_ENV
-    
-    - name: Install sshpass
-      run: sudo apt-get update && sudo apt-get install -y sshpass
-    
-    - name: Deploy app files to all web VMs
-      run: |
-       #!/usr/bin/env bash
-       set -e
+  deploy-app:
+    needs: deploy-vms
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-       for ip in $web1_IP $web2_IP $web3_IP; do
-       echo "🚀 Deploying to $ip"
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-        sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no index.html azureuser@$ip:/home/azureuser/
-        sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip "mkdir -p /home/azureuser/images"
-        sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no images/* azureuser@$ip:/home/azureuser/images/
+      - name: Get VM IPs
+        run: |
+          echo "web1_IP=$(az vm show -d -g $RESOURCE_GROUP -n web1 --query publicIps -o tsv)" >> $GITHUB_ENV
+          echo "web2_IP=$(az vm show -d -g $RESOURCE_GROUP -n web2 --query publicIps -o tsv)" >> $GITHUB_ENV
+          echo "web3_IP=$(az vm show -d -g $RESOURCE_GROUP -n web3 --query publicIps -o tsv)" >> $GITHUB_ENV
 
-        sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip 'bash -s' <<'EOF'
-        set -e
+      - name: Deploy app files to all web VMs
+        run: |
+          #!/usr/bin/env bash
+          set -e
+          for ip in $web1_IP $web2_IP $web3_IP; do
+            echo "🚀 Deploying to $ip"
 
-        echo "⏳ Checking apt lock..."
-        timeout 60s bash -c "while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do echo 'Waiting for apt lock...'; sleep 5; done" || { echo '❌ Apt lock timeout'; exit 1; }
+            sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no index.html azureuser@$ip:/home/azureuser/
+            sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip "mkdir -p /home/azureuser/images"
+            sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no images/* azureuser@$ip:/home/azureuser/images/
 
-        echo "🔧 Updating system & installing packages..."
-        sudo rm -f /var/cache/apt/*.bin
-        sudo apt update
-        sudo apt install -y jq nginx
+            sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip 'bash -s' <<'EOF'
+              set -e
+              echo "⏳ Checking apt lock..."
+              timeout 60s bash -c "while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do echo 'Waiting for apt lock...'; sleep 5; done" || { echo '❌ Apt lock timeout'; exit 1; }
 
-        PUBLIC_IP=$(curl -s ifconfig.me)
-        SERVER_NAME=$(hostname)
-        LOCATION=$(curl -s "http://ipinfo.io/$PUBLIC_IP/json" | jq -r '.city + ", " + .region + ", " + .country')
+              echo "🔧 Updating system & installing packages..."
+              sudo rm -f /var/cache/apt/*.bin
+              sudo apt update
+              sudo apt install -y jq nginx
 
-        echo "🔄 Updating index.html with dynamic values..."
-        sed "s#{{{SERVER_NAME}}}#$SERVER_NAME#g" /home/azureuser/index.html > /home/azureuser/index.tmp.html
-        sed "s#{{{LOCATION}}}#$LOCATION#g" /home/azureuser/index.tmp.html > /home/azureuser/index.final.html
+              PUBLIC_IP=$(curl -s ifconfig.me)
+              SERVER_NAME=$(hostname)
+              LOCATION=$(curl -s "http://ipinfo.io/$PUBLIC_IP/json" | jq -r '.city + ", " + .region + ", " + .country')
 
-        sudo mkdir -p /var/www/html/images
-        sudo cp /home/azureuser/index.final.html /var/www/html/index.html
-        sudo cp /home/azureuser/images/* /var/www/html/images/
+              echo "🔄 Updating index.html with dynamic values..."
+              sed "s#{{{SERVER_NAME}}}#$SERVER_NAME#g" /home/azureuser/index.html > /home/azureuser/index.tmp.html
+              sed "s#{{{LOCATION}}}#$LOCATION#g" /home/azureuser/index.tmp.html > /home/azureuser/index.final.html
 
-        echo "📝 Writing nginx cache config..."
-        sudo tee /etc/nginx/conf.d/cache_images.conf > /dev/null <<NGINX
-          server {
-              listen 80;
-              server_name localhost;
+              sudo mkdir -p /var/www/html/images
+              sudo cp /home/azureuser/index.final.html /var/www/html/index.html
+              sudo cp /home/azureuser/images/* /var/www/html/images/
 
-          location /images/ {
-              root /var/www/html;
-              add_header Cache-Control "public, max-age=31536000, immutable";
-              access_log off;
-              add_header 'Access-Control-Allow-Origin' '*';
-              add_header 'Access-Control-Allow-Methods' 'GET';
-              add_header 'Access-Control-Allow-Headers' 'Content-Type';
-             }
-               }
-                NGINX
+              echo "📝 Writing nginx cache config..."
+              sudo tee /etc/nginx/conf.d/cache_images.conf > /dev/null <<NGINX
+                  server {
+                     listen 80;
+                     server_name localhost;
+                  location /images/ {
+                     root /var/www/html;
+                     add_header Cache-Control "public, max-age=31536000, immutable";
+                     access_log off;
+                     add_header 'Access-Control-Allow-Origin' '*';
+                     add_header 'Access-Control-Allow-Methods' 'GET';
+                     add_header 'Access-Control-Allow-Headers' 'Content-Type';
+                       }
+                     }
+                     NGINX
 
-        echo "🔄 Testing nginx config..."
-        sudo nginx -t || { echo '❌ nginx config test failed'; exit 1; }
+              echo "🔄 Testing nginx config..."
+              sudo nginx -t || { echo '❌ nginx config test failed'; exit 1; }
 
-        echo "✅ Reloading nginx..."
-        sudo systemctl reload nginx
+              echo "✅ Reloading nginx..."
+              sudo systemctl reload nginx
 
-        echo "🎉 Deployment successful on $SERVER_NAME ($LOCATION)"
-        EOF
-
-         done
+              echo "🎉 Deployment successful on $SERVER_NAME ($LOCATION)"
+          EOF
+             done
