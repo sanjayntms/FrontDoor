@@ -115,22 +115,33 @@ jobs:
 
         sudo mkdir -p /var/www/html/images
         sudo cp /home/azureuser/index.final.html /var/www/html/index.html
+        ls /var/www/html
         sudo cp /home/azureuser/images/* /var/www/html/images/
 
-        # Write NGINX cache config
-        sudo bash -c 'cat > /etc/nginx/conf.d/cache_images.conf' <<'EOF'
-              server {
-                 listen 80;
-                 server_name localhost;
+            echo "📝 Writing nginx cache config..."
+        sudo tee /etc/nginx/conf.d/cache_images.conf > /dev/null <<NGINX
+          server {
+             listen 80;
+             server_name localhost;
 
              location /images/ {
-                root /var/www/html;
-                add_header Cache-Control "public, max-age=31536000, immutable";
-                access_log off;
-                }
-        }
-         EOF
+               root /var/www/html;
+               add_header Cache-Control "public, max-age=31536000, immutable";
+               access_log off;
+               add_header 'Access-Control-Allow-Origin' '*';
+               add_header 'Access-Control-Allow-Methods' 'GET';
+               add_header 'Access-Control-Allow-Headers' 'Content-Type';
+              }
+            }
+         NGINX
 
-         sudo nginx -t && sudo systemctl reload nginx || { echo '❌ nginx config test failed'; exit 1; }
-          '"
-          done
+       echo "🔄 Testing nginx config..."
+       sudo nginx -t || { echo '❌ nginx config test failed'; exit 1; }
+
+       echo "✅ Reloading nginx..."
+       sudo systemctl reload nginx
+
+       echo "🎉 Deployment successful on $SERVER_NAME"
+       EOF
+
+       done
