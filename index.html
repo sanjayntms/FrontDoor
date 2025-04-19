@@ -75,7 +75,7 @@
 </head>
 <body>
   <h1>NTMS Azure Front Door 3D Image Gallery with Load Times</h1>
-  <div id="cdn-info">Served by: {{SERVER_NAME}}<br>Location: {{LOCATION}}</div>
+  <div id="cdn-info">Served by: {{{SERVER_NAME}}}<br>Location: {{{LOCATION}}}</div>
   <div id="cache-status">Cache Status: Checking...</div>
 
   <div class="gallery-wrapper">
@@ -106,25 +106,40 @@
 
   <script>
     const sources = {
-      frontdoor: '', // Same origin
+      frontdoor: '', // Front Door will use relative path
       web1: 'http://13.71.33.219',
       web2: 'http://172.191.154.50',
       web3: 'http://4.196.80.81'
     };
 
-    const imageList = ["image1.jpg", "image2.jpg", "image3.jpg", "image4.jpg"];
-
     const table = document.getElementById("load-time-table");
 
-    function createGallery(sourceName, prefix, containerId) {
+    async function fetchImageList(prefix) {
+      try {
+        const response = await fetch(prefix ? `${prefix}/images/` : `/images/`);
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const links = Array.from(doc.querySelectorAll('a'));
+        return links
+          .map(link => link.getAttribute('href'))
+          .filter(href => href && href.match(/\.(jpg|jpeg|png|gif)$/i));
+      } catch (error) {
+        console.error(`Failed to fetch image list from ${prefix || 'Front Door'}:`, error);
+        return [];
+      }
+    }
+
+    async function createGallery(sourceName, prefix, containerId) {
       const container = document.getElementById(containerId);
+      const imageList = await fetchImageList(prefix);
 
       imageList.forEach(filename => {
         const imageContainer = document.createElement("div");
         imageContainer.className = "image-container";
 
         const img = document.createElement("img");
-        const srcUrl = `${prefix}/images/${filename}`;
+        const srcUrl = prefix ? `${prefix}/images/${filename}` : `/images/${filename}`;
         img.src = srcUrl;
 
         const loadTimeDiv = document.createElement("div");
