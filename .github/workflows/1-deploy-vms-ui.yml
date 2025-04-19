@@ -85,15 +85,15 @@ jobs:
     - name: Install sshpass
       run: sudo apt-get update && sudo apt-get install -y sshpass
     - name: Deploy app files to all web VMs
-  run: |
-    for ip in $web1_IP $web2_IP $web3_IP; do
-      echo "Deploying to $ip"
+      run: |
+       for ip in $web1_IP $web2_IP $web3_IP; do
+       echo "Deploying to $ip"
 
-      sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no index.html azureuser@$ip:/home/azureuser/
-      sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip "mkdir -p /home/azureuser/images"
-      sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no images/* azureuser@$ip:/home/azureuser/images/
+       sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no index.html azureuser@$ip:/home/azureuser/
+       sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip "mkdir -p /home/azureuser/images"
+       sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no images/* azureuser@$ip:/home/azureuser/images/
 
-      sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip "
+        sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip "
         while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do echo 'Waiting for apt lock...'; sleep 5; done && \
         sudo rm -f /var/cache/apt/*.bin && \
         sudo apt update && \
