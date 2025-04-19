@@ -107,10 +107,15 @@ jobs:
        sudo apt install -y jq nginx && \
 
        PUBLIC_IP=\$(curl -s ifconfig.me) && \
-       LOCATION=\$(curl -s \"http://ipinfo.io/\$PUBLIC_IP/json\" | jq -r '.city + \", \" + .region + \", \" + .country') && \
        SERVER_NAME=\$(hostname) && \
+       LOCATION=\$(curl -s \"http://ipinfo.io/\$PUBLIC_IP/json\" | jq -r '.city + \", \" + .region + \", \" + .country') && \
 
-       # Use # as the sed delimiter to avoid conflicts with characters in variables
+       # --- SED DEBUGGING ---
+       echo \"DEBUG: SERVER_NAME is '\$SERVER_NAME'\" && \
+       echo \"DEBUG: LOCATION is '\$LOCATION'\" && \
+       # --- END SED DEBUGGING ---
+
+       # Use # as the sed delimiter
        sed \"s#***SERVER_NAME***#\$SERVER_NAME#g\" /home/azureuser/index.html > /home/azureuser/index.tmp.html && \
        sed \"s#***LOCATION***#\$LOCATION#g\" /home/azureuser/index.tmp.html > /home/azureuser/index.final.html && \
 
@@ -119,6 +124,7 @@ jobs:
        sudo cp /home/azureuser/images/* /var/www/html/images/ && \
 
        # Create cache_images.conf with cache headers
+       # **IMPORTANT**: Ensure the final EOF marker below has NO leading spaces in your YAML file
        sudo tee /etc/nginx/conf.d/cache_images.conf > /dev/null <<EOF
        server {
         listen 80;
@@ -131,6 +137,12 @@ jobs:
           }
         }
        EOF
+
+       # --- NGINX DEBUGGING (Optional) ---
+       # echo \"---- DEBUG: Generated Nginx Config ----\"
+       # sudo cat /etc/nginx/conf.d/cache_images.conf
+       # echo \"---- END DEBUG ----\"
+       # --- END NGINX DEBUGGING ---
 
        # Reload nginx if config is valid
        sudo nginx -t && sudo systemctl reload nginx || { echo '❌ nginx config test failed'; exit 1; }
