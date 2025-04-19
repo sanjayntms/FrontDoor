@@ -100,7 +100,7 @@ jobs:
         while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do echo 'Waiting for apt lock...'; sleep 5; done && \
         sudo rm -f /var/cache/apt/*.bin && \
         sudo apt update && \
-        sudo apt  install jq && \
+        sudo apt  install -y jq && \
         sudo apt install -y nginx && \
 
         # Replace placeholder in HTML with actual hostname
