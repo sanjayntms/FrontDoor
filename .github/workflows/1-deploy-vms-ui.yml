@@ -102,24 +102,28 @@ jobs:
         sudo apt update && \
         sudo apt install -y nginx && \
 
+        # Replace placeholder in HTML with actual hostname
+        SERVER_NAME=\$(hostname) && \
+        sed \"s/{{SERVER_NAME}}/\$SERVER_NAME/g\" /home/azureuser/index.html > /home/azureuser/index.final.html && \
+
         # Deploy web files
         sudo mkdir -p /var/www/html/images && \
-        sudo cp /home/azureuser/index.html /var/www/html/index.html && \
+        sudo cp /home/azureuser/index.final.html /var/www/html/index.html && \
         sudo cp /home/azureuser/images/* /var/www/html/images/ && \
 
         # Create cache_images.conf with cache headers
         sudo tee /etc/nginx/conf.d/cache_images.conf > /dev/null <<'EOF'
         server {
-                listen 80;
-                server_name localhost;
+            listen 80;
+            server_name localhost;
 
-                location /images/ {
+            location /images/ {
                 root /var/www/html;
                 add_header Cache-Control 'public, max-age=31536000, immutable';
                 access_log off;
-               }
-               }
-               EOF
+            }
+        }
+        EOF
 
         # Reload nginx if config is valid
         sudo nginx -t && sudo systemctl reload nginx || echo '❌ nginx config test failed'
