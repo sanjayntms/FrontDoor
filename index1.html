@@ -2,163 +2,92 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>NTMS Azure Front Door 3D Image Gallery with Load Times</title>
+  <title>3D Azure Front Door CDN Gallery</title>
   <style>
     body {
-      background: linear-gradient(135deg, #1e3c72, #2a5298);
-      color: white;
-      font-family: 'Segoe UI', sans-serif;
-      text-align: center;
-      padding: 20px;
-      perspective: 1000px;
-    }
-    h1 {
-      font-size: 2.5em;
-      text-shadow: 2px 2px 4px #000;
-    }
-    h2 {
-      margin-top: 40px;
-    }
-    .gallery-wrapper {
+      background: linear-gradient(145deg, #f0f0f0, #d0d0d0);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
       display: flex;
       flex-direction: column;
-      gap: 40px;
       align-items: center;
     }
-    .gallery {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 20px;
-      transform: rotateY(10deg);
-    }
-    .image-container {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 10px;
-      border-radius: 15px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.5);
-      transform: rotateX(10deg);
-      transition: transform 0.3s ease;
-    }
-    .image-container:hover {
-      transform: scale(1.05) rotateX(0deg);
-    }
-    img {
-      max-width: 200px;
-      border-radius: 10px;
-      border: 2px solid #fff;
-    }
-    .load-time {
-      font-size: 0.9em;
-      color: #ffeb3b;
-    }
-    #cache-status, #cdn-info {
+    h1 {
       margin-top: 20px;
-      font-size: 1.2em;
+      color: #4a148c;
+      text-shadow: 1px 1px 5px #aaa;
+    }
+    .server {
+      margin: 10px;
+      font-size: 18px;
+      color: #00695c;
       font-weight: bold;
     }
-    table {
-      margin: 40px auto;
-      border-collapse: collapse;
-      width: 80%;
-      background: rgba(255, 255, 255, 0.1);
-      box-shadow: 0 0 15px rgba(0,0,0,0.5);
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 30px;
+      padding: 40px;
+      width: 90%;
     }
-    th, td {
-      padding: 10px;
-      border: 1px solid #fff;
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      transform: perspective(600px) rotateX(5deg) rotateY(-5deg);
+      transition: transform 0.3s ease;
     }
-    th {
-      background-color: #333;
+    .card:hover {
+      transform: perspective(600px) rotateX(0) rotateY(0) scale(1.05);
+    }
+    img {
+      width: 100%;
+      border-radius: 20px 20px 0 0;
+    }
+    .info {
+      padding: 15px;
+      text-align: center;
+      font-weight: bold;
+      color: #333;
     }
   </style>
 </head>
 <body>
-  <h1>NTMS Azure Front Door 3D Image Gallery with Load Times</h1>
-  <div id="cdn-info">Served by: {{SERVER_NAME}}<br>Location: {{LOCATION}}</div>
+  <h1>🌐 NTMS Azure Front Door 3D Image Gallery with Load Times</h1>
+  <div class="server">Served by: <span id="server-name">{{SERVER_NAME}}- Location: {{LOCATION}} </span></div>
   <div id="cache-status">Cache Status: Checking...</div>
-
-  <div class="gallery-wrapper">
-    <div>
-      <h2>Front Door Gallery</h2>
-      <div class="gallery" id="gallery-frontdoor"></div>
-    </div>
-    <div>
-      <h2>Web1 Gallery</h2>
-      <div class="gallery" id="gallery-web1"></div>
-    </div>
-    <div>
-      <h2>Web2 Gallery</h2>
-      <div class="gallery" id="gallery-web2"></div>
-    </div>
-    <div>
-      <h2>Web3 Gallery</h2>
-      <div class="gallery" id="gallery-web3"></div>
-    </div>
-  </div>
-
-  <table>
-    <thead>
-      <tr><th>Source</th><th>Image</th><th>Load Time (ms)</th></tr>
-    </thead>
-    <tbody id="load-time-table"></tbody>
-  </table>
+  <div class="gallery" id="gallery"></div>
 
   <script>
-    const sources = {
-      frontdoor: '', // Same origin
-      web1: 'http://13.71.33.219',
-      web2: 'http://172.191.154.50',
-      web3: 'http://4.196.80.81'
-    };
+    const imageCount = 5; // Set this based on your number of images
+    const gallery = document.getElementById("gallery");
 
-    const imageList = ["image1.jpg", "image2.jpg", "image3.jpg", "image4.jpg"];
+    for (let i = 1; i <= imageCount; i++) {
+      const img = new Image();
+      const startTime = performance.now();
+      const card = document.createElement("div");
+      card.className = "card";
 
-    const table = document.getElementById("load-time-table");
-
-    function createGallery(sourceName, prefix, containerId) {
-      const container = document.getElementById(containerId);
-
-      imageList.forEach(filename => {
-        const imageContainer = document.createElement("div");
-        imageContainer.className = "image-container";
-
-        const img = document.createElement("img");
-        const srcUrl = `${prefix}/images/${filename}`;
-        img.src = srcUrl;
-
-        const loadTimeDiv = document.createElement("div");
-        loadTimeDiv.className = "load-time";
-        loadTimeDiv.textContent = "Loading...";
-
-        const start = performance.now();
-
-        img.onload = () => {
-          const end = performance.now();
-          const duration = (end - start).toFixed(2);
-          loadTimeDiv.textContent = `Loaded in ${duration} ms`;
-
-          const row = document.createElement("tr");
-          row.innerHTML = `<td>${sourceName}</td><td>${filename}</td><td>${duration}</td>`;
-          table.appendChild(row);
-        };
-
-        img.onerror = () => {
-          loadTimeDiv.textContent = "Failed to load";
-        };
-
-        imageContainer.appendChild(img);
-        imageContainer.appendChild(loadTimeDiv);
-        container.appendChild(imageContainer);
-      });
+      img.src = `/images/image-0${i}.jpg`;
+      img.onload = () => {
+        const loadTime = (performance.now() - startTime).toFixed(2);
+        const info = document.createElement("div");
+        info.className = "info";
+        info.textContent = `Loaded in ${loadTime} ms`;
+        card.appendChild(img);
+        card.appendChild(info);
+        gallery.appendChild(card);
+      };
+      img.onerror = () => {
+        const info = document.createElement("div");
+        info.className = "info";
+        info.textContent = `Failed to load image-0${i}.jpg`;
+        card.appendChild(info);
+        gallery.appendChild(card);
+      };
     }
-
-    createGallery("Front Door", sources.frontdoor, "gallery-frontdoor");
-    createGallery("Web1", sources.web1, "gallery-web1");
-    createGallery("Web2", sources.web2, "gallery-web2");
-    createGallery("Web3", sources.web3, "gallery-web3");
-
-    async function checkCacheStatus() {
+     async function checkCacheStatus() {
       try {
         const response = await fetch(window.location.href, { method: 'HEAD', cache: 'reload' });
         const cacheStatus = response.headers.get('x-cache') || 'UNKNOWN';
