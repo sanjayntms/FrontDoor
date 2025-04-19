@@ -100,15 +100,22 @@ jobs:
         while sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1; do echo 'Waiting for apt lock...'; sleep 5; done && \
         sudo rm -f /var/cache/apt/*.bin && \
         sudo apt update && \
+        sudo apt  install jq && \
         sudo apt install -y nginx && \
 
         # Replace placeholder in HTML with actual hostname
-        SERVER_NAME=\$(hostname) && \
-        sed \"s/{{SERVER_NAME}}/\$SERVER_NAME/g\" /home/azureuser/index.html > /home/azureuser/index.final.html && \
-
+        #SERVER_NAME=\$(hostname) && \
+        #sed \"s/{{SERVER_NAME}}/\$SERVER_NAME/g\" /home/azureuser/index.html > /home/azureuser/index.final.html && \
+        #Add Location
+        PUBLIC_IP=$(curl -s ifconfig.me)
+        LOCATION=$(curl -s "http://ipinfo.io/$PUBLIC_IP/json" | jq -r '.city + ", " + .region + ", " + .country')
+        SERVER_NAME=\$(hostname)
+        LOCATION=\$LOCATION
+        sed 's/{{SERVER_NAME}}/'\"\$SERVER_NAME\"'/g' /home/azureuser/index.html > /home/azureuser/index.final.html
+        sed 's/{{LOCATION}}/'\"\$LOCATION\"'/g' /home/azureuser/index.final.html > /home/azureuser/index.final_with_location.html
         # Deploy web files
         sudo mkdir -p /var/www/html/images && \
-        sudo cp /home/azureuser/index.final.html /var/www/html/index.html && \
+        sudo cp /home/azureuser/index.final_with_location.html /var/www/html/index.html && \
         sudo cp /home/azureuser/images/* /var/www/html/images/ && \
 
         # Create cache_images.conf with cache headers
