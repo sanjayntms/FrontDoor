@@ -82,9 +82,10 @@ jobs:
 
       - name: Get VM IPs
         run: |
-          echo "web1_IP=$(az vm show -d -g $RESOURCE_GROUP -n web1 --query publicIps -o tsv)" >> $GITHUB_ENV
-          echo "web2_IP=$(az vm show -d -g $RESOURCE_GROUP -n web2 --query publicIps -o tsv)" >> $GITHUB_ENV
-          echo "web3_IP=$(az vm show -d -g $RESOURCE_GROUP -n web3 --query publicIps -o tsv)" >> $GITHUB_ENV
+          echo "web1_IP=$(az vm show -d -g $RESOURCE_GROUP -n webAE --query publicIps -o tsv)" >> $GITHUB_ENV
+          echo "web2_IP=$(az vm show -d -g $RESOURCE_GROUP -n webCI --query publicIps -o tsv)" >> $GITHUB_ENV
+          echo "web3_IP=$(az vm show -d -g $RESOURCE_GROUP -n webEU --query publicIps -o tsv)" >> $GITHUB_ENV
+          echo "web4_IP=$(az vm show -d -g $RESOURCE_GROUP -n webNE --query publicIps -o tsv)" >> $GITHUB_ENV
 
       - name: Deploy app files to all web VMs
         run: |
