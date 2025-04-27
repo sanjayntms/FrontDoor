@@ -30,12 +30,14 @@ jobs:
       matrix:
         include:
           - LOCATION: centralindia
-            VM_NAME: web1
+            VM_NAME: webCI
           - LOCATION: eastus
-            VM_NAME: web2
+            VM_NAME: webEU
           - LOCATION: australiaeast
-            VM_NAME: web3
-
+            VM_NAME: webAE
+          - LOCATION: northeurope
+            VM_NAME: webNE
+ 
     steps:
       - name: Azure Login
         uses: azure/login@v1
