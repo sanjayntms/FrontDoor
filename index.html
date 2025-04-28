@@ -60,7 +60,7 @@
   <div class="gallery" id="gallery"></div>
 
   <script>
-    const imageCount = 5; // Set this based on your number of images
+    const imageCount = 15; // Set this based on your number of images
     const gallery = document.getElementById("gallery");
 
     for (let i = 1; i <= imageCount; i++) {
@@ -69,7 +69,7 @@
       const card = document.createElement("div");
       card.className = "card";
 
-      img.src = `/images/image-0${i}.jpg`;
+      img.src = `/images/image-${i}.jpg`;
       img.onload = () => {
         const loadTime = (performance.now() - startTime).toFixed(2);
         const info = document.createElement("div");
@@ -82,7 +82,7 @@
       img.onerror = () => {
         const info = document.createElement("div");
         info.className = "info";
-        info.textContent = `Failed to load image-0${i}.jpg`;
+        info.textContent = `Failed to load image-${i}.jpg`;
         card.appendChild(info);
         gallery.appendChild(card);
       };
