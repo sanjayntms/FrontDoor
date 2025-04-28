@@ -1,4 +1,4 @@
-name: Delete Setup
+name: Setup Delete 
 
 on:
   workflow_dispatch:
