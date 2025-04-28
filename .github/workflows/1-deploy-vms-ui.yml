@@ -91,13 +91,12 @@ jobs:
         run: |
           #!/usr/bin/env bash
           set -e
-          for ip in $web1_IP $web2_IP $web3_IP; do
+          for ip in $web1_IP $web2_IP $web3_IP $Web4_IP; do
             echo "🚀 Deploying to $ip"
 
             sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no index.html azureuser@$ip:/home/azureuser/
-            sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip "mkdir -p /home/azureuser/images"
-            sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no images/* azureuser@$ip:/home/azureuser/images/
-
+            sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no -r images/ azureuser@$ip:/home/azureuser/
+ 
             sshpass -p "$VM_PASSWORD" ssh -o StrictHostKeyChecking=no azureuser@$ip 'bash -s' <<'EOF'
               set -e
               echo "⏳ Checking apt lock..."
@@ -105,8 +104,8 @@ jobs:
 
               echo "🔧 Updating system & installing packages..."
               sudo rm -f /var/cache/apt/*.bin
-              sudo apt update
-              sudo apt install -y jq nginx
+              sudo apt-get update -qq > /dev/null
+              sudo apt install -y jq nginx -qq > /dev/null
 
               PUBLIC_IP=$(curl -s ifconfig.me)
               SERVER_NAME=$(hostname)
@@ -115,7 +114,7 @@ jobs:
               echo "🔄 Updating index.html with dynamic values..."
               sed "s#{{{SERVER_NAME}}}#$SERVER_NAME#g" /home/azureuser/index.html > /home/azureuser/index.tmp.html
               sed "s#{{{LOCATION}}}#$LOCATION#g" /home/azureuser/index.tmp.html > /home/azureuser/index.final.html
-                
+                            
               sudo mkdir -p /var/www/html/images
               sudo cp /home/azureuser/index.final.html /var/www/html/index.html
               sudo cp /home/azureuser/images/* /var/www/html/images/
@@ -134,7 +133,7 @@ jobs:
                      add_header 'Access-Control-Allow-Headers' 'Content-Type';
                        }
                      }
-                     NGINX
+          NGINX
 
 
 
