@@ -1,4 +1,4 @@
-# FrontDoor
+# FrontDoor CDN TCP Hit, TCP Miss, TCP Remote Hit
 # Deploy VMs in   - LOCATION: centralindia
             VM_NAME: webCI
           - LOCATION: eastus
