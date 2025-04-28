@@ -68,7 +68,7 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get update && sudo apt-get install -y sshpass
 
-  deploy-app:
+  deploy-app-on-all-VMs:
     needs: deploy-vms
     runs-on: ubuntu-latest
     steps:
