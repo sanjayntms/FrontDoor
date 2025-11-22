@@ -91,7 +91,7 @@ jobs:
         run: |
           #!/usr/bin/env bash
           set -e
-          for ip in $web1_IP $web2_IP $web3_IP $Web4_IP; do
+          for ip in $web1_IP $web2_IP $web3_IP $web4_IP; do
             echo "🚀 Deploying to $ip"
 
             sshpass -p "$VM_PASSWORD" scp -o StrictHostKeyChecking=no index.html azureuser@$ip:/home/azureuser/
