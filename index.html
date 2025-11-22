@@ -1,104 +1,184 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>3D Azure Front Door CDN Gallery</title>
-  <style>
-    body {
-      background: linear-gradient(145deg, #f0f0f0, #d0d0d0);
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    h1 {
-      margin-top: 20px;
-      color: #4a148c;
-      text-shadow: 1px 1px 5px #aaa;
-    }
-    .server {
-      margin: 10px;
-      font-size: 18px;
-      color: #00695c;
-      font-weight: bold;
-    }
-    .gallery {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 30px;
-      padding: 40px;
-      width: 90%;
-    }
-    .card {
-      background: #fff;
-      border-radius: 20px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-      transform: perspective(600px) rotateX(5deg) rotateY(-5deg);
-      transition: transform 0.3s ease;
-    }
-    .card:hover {
-      transform: perspective(600px) rotateX(0) rotateY(0) scale(1.05);
-    }
-    img {
-      width: 100%;
-      border-radius: 20px 20px 0 0;
-    }
-    .info {
-      padding: 15px;
-      text-align: center;
-      font-weight: bold;
-      color: #333;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>3D Azure Front Door CDN Gallery</title>
+<style>
+body {
+  background: linear-gradient(145deg, #f0f0f0, #d0d0d0);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+h1 {
+  margin-top: 20px;
+  color: #4a148c;
+  text-shadow: 1px 1px 5px #aaa;
+}
+.server {
+  margin: 10px;
+  font-size: 18px;
+  color: #00695c;
+  font-weight: bold;
+}
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 30px;
+  padding: 40px;
+  width: 90%;
+}
+.card {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  transform: perspective(600px) rotateX(5deg) rotateY(-5deg);
+  transition: transform 0.3s ease;
+}
+.card:hover {
+  transform: perspective(600px) rotateX(0) rotateY(0) scale(1.05);
+}
+img {
+  width: 100%;
+  border-radius: 20px 20px 0 0;
+}
+.info {
+  padding: 15px;
+  text-align: center;
+  font-weight: bold;
+  color: #333;
+}
+th, td {
+  border-bottom: 1px solid #e0e0e0;
+}
+</style>
 </head>
 <body>
-  <h1>NTMS Azure Front Door 3D Image Gallery with Load Times</h1>
-  <div id="cdn-info">Served by: {{{SERVER_NAME}}}<br>Location: {{{LOCATION}}}</div>
-  <div id="cache-status">Cache Status: Checking...</div>
-  <div class="gallery" id="gallery"></div>
+<h1>NTMS Azure Front Door 3D Image Gallery with Load Times</h1>
+<div id="cdn-info">Served by: {{{SERVER_NAME}}}<br>Location: {{{LOCATION}}}</div>
+<div id="cache-status">Cache Status: Checking...</div>
+<div id="gallery" class="gallery"></div>
+<div id="latency-table"></div>
+<script>
+const imageCount = 15;
+const gallery = document.getElementById("gallery");
+const latencyTable = document.getElementById("latency-table");
+let imageData = [];
 
-  <script>
-    const imageCount = 15; // Set this based on your number of images
-    const gallery = document.getElementById("gallery");
+// Table renderer
+function renderTable() {
+  let html = `
+    <table style="width: 90%; margin-top: 30px; border-radius: 12px; border-collapse: separate; box-shadow: 0 6px 18px rgba(0,0,40,.12); background: #fff; overflow: hidden; font-size: 18px;">
+      <tr style="background: #f3e9fb;">
+        <th style="padding:10px;">#</th>
+        <th style="padding:10px;">Image Name</th>
+        <th style="padding:10px;">With Cache (ms)</th>
+        <th style="padding:10px;">Without Cache (ms)</th>
+        <th style="padding:10px;">Status</th>
+      </tr>`;
+  imageData.forEach((data, idx) => {
+      html += `
+      <tr style="${data.status === 'Loaded' ? 'background:#e7f9e1;' : 'background:#fdeaea;'}">
+        <td style="padding:10px;text-align:center;">${idx + 1}</td>
+        <td style="padding:10px;font-weight:500;color:#5926a2;">${data.name}</td>
+        <td style="padding:10px;text-align:center;">${data.cacheLatency}</td>
+        <td style="padding:10px;text-align:center;">${data.noCacheLatency}</td>
+        <td style="padding:10px;text-align:center;">
+          ${data.status === 'Loaded' ? '✅ ' : '❌ '}
+          ${data.status}
+        </td>
+      </tr>`;
+  });
+  html += `</table>`;
+  latencyTable.innerHTML = html;
+}
 
-    for (let i = 1; i <= imageCount; i++) {
-      const img = new Image();
-      const startTime = performance.now();
+// Load images and measure latency
+for (let i = 1; i <= imageCount; i++) {
+  const imgCache = new Image();
+  const startCache = performance.now();
+  imgCache.src = `/images/image-${i}.jpg`;
+
+  imgCache.onload = () => {
+    const cacheLoadTime = (performance.now() - startCache).toFixed(2);
+
+    // Now, force uncached load by appending nocache param
+    const imgNoCache = new Image();
+    const startNoCache = performance.now();
+    imgNoCache.src = `/images/image-${i}.jpg?nocache=${Date.now()}-${Math.random()}`;
+    imgNoCache.onload = () => {
+      const noCacheLoadTime = (performance.now() - startNoCache).toFixed(2);
+
+      imageData.push({
+        name: `image-${i}.jpg`,
+        cacheLatency: cacheLoadTime,
+        noCacheLatency: noCacheLoadTime,
+        status: "Loaded"
+      });
+      renderTable();
+
       const card = document.createElement("div");
       card.className = "card";
+      const info = document.createElement("div");
+      info.className = "info";
+      info.textContent = `Loaded in ${cacheLoadTime} ms (cache), ${noCacheLoadTime} ms (no cache)`;
+      card.appendChild(imgCache);
+      card.appendChild(info);
+      gallery.appendChild(card);
 
-      img.src = `/images/image-${i}.jpg`;
-      img.onload = () => {
-        const loadTime = (performance.now() - startTime).toFixed(2);
-        const info = document.createElement("div");
-        info.className = "info";
-        info.textContent = `Loaded in ${loadTime} ms`;
-        card.appendChild(img);
-        card.appendChild(info);
-        gallery.appendChild(card);
-      };
-      img.onerror = () => {
-        const info = document.createElement("div");
-        info.className = "info";
-        info.textContent = `Failed to load image-${i}.jpg`;
-        card.appendChild(info);
-        gallery.appendChild(card);
-      };
-    }
-     async function checkCacheStatus() {
-      try {
-        const response = await fetch(window.location.href, { method: 'HEAD', cache: 'reload' });
-        const cacheStatus = response.headers.get('x-cache') || 'UNKNOWN';
-        document.getElementById('cache-status').textContent = 'Cache Status: ' + cacheStatus;
-      } catch (error) {
-        document.getElementById('cache-status').textContent = 'Cache Status: Error checking';
-        console.error('Failed to fetch headers:', error);
-      }
-    }
+    };
+    imgNoCache.onerror = () => {
+      imageData.push({
+        name: `image-${i}.jpg`,
+        cacheLatency: cacheLoadTime,
+        noCacheLatency: "-",
+        status: "Failed"
+      });
+      renderTable();
 
-    checkCacheStatus();
-  </script>
+      const card = document.createElement("div");
+      card.className = "card";
+      const info = document.createElement("div");
+      info.className = "info";
+      info.textContent = `Failed to load image-${i}.jpg (no cache)`;
+      card.appendChild(info);
+      gallery.appendChild(card);
+    };
+  };
+
+  imgCache.onerror = () => {
+    imageData.push({
+      name: `image-${i}.jpg`,
+      cacheLatency: "-",
+      noCacheLatency: "-",
+      status: "Failed"
+    });
+    renderTable();
+
+    const card = document.createElement("div");
+    card.className = "card";
+    const info = document.createElement("div");
+    info.className = "info";
+    info.textContent = `Failed to load image-${i}.jpg`;
+    card.appendChild(info);
+    gallery.appendChild(card);
+  };
+}
+
+async function checkCacheStatus() {
+  try {
+    const response = await fetch(window.location.href, { method: 'HEAD', cache: 'reload' });
+    const cacheStatus = response.headers.get('x-cache') || 'UNKNOWN';
+    document.getElementById('cache-status').textContent = 'Cache Status: ' + cacheStatus;
+  } catch (error) {
+    document.getElementById('cache-status').textContent = 'Cache Status: Error checking';
+    console.error('Failed to fetch headers:', error);
+  }
+}
+checkCacheStatus();
+</script>
 </body>
 </html>
