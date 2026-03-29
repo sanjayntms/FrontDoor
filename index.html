@@ -12,21 +12,13 @@ body {
   margin: 0; padding: 0;
   display: flex; flex-direction: column; align-items: center;
 }
-h1 {
-  margin-top: 20px;
-  color: #4a148c;
-  text-shadow: 1px 1px 5px #aaa;
-}
-.server {
-  margin: 10px;
-  font-size: 18px;
-  color: #00695c;
-  font-weight: bold;
-  text-align: center;
-}
+h1 { margin-top: 20px; color: #4a148c; text-shadow: 1px 1px 5px #aaa; }
+.server { margin: 10px; font-size: 18px; color: #00695c; font-weight: bold; text-align: center; }
+
 #cache-status {
   font-weight: bold;
   margin-top: 5px;
+  text-align: center;
 }
 
 /* Dashboard */
@@ -45,10 +37,7 @@ h1 {
   width: 500px;
   height: 300px;
 }
-.table-container {
-  padding: 10px;
-  overflow-y: auto;
-}
+.table-container { padding: 10px; overflow-y: auto; }
 
 /* Gallery */
 .gallery {
@@ -64,40 +53,14 @@ h1 {
   box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   transform: perspective(600px) rotateX(5deg) rotateY(-5deg);
   transition: transform 0.3s ease;
-  overflow: hidden;
 }
-.card:hover {
-  transform: perspective(600px) rotateX(0) rotateY(0) scale(1.05);
-}
-img {
-  width: 100%;
-  height: 200px;
-  object-fit: cover;
-}
-.info {
-  padding: 15px;
-  text-align: center;
-  font-weight: bold;
-  color: #333;
-  font-size: 14px;
-}
+.card:hover { transform: perspective(600px) rotateX(0) rotateY(0) scale(1.05); }
+img { width: 100%; height: 200px; object-fit: cover; }
+.info { padding: 15px; text-align: center; font-weight: bold; }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-th {
-  background: #f3e9fb;
-  padding: 8px;
-  position: sticky;
-  top: 0;
-}
-td {
-  border-bottom: 1px solid #eee;
-  padding: 8px;
-  text-align: center;
-}
+table { width: 100%; border-collapse: collapse; }
+th { background: #f3e9fb; padding: 8px; position: sticky; top: 0; }
+td { border-bottom: 1px solid #eee; padding: 8px; text-align: center; }
 </style>
 </head>
 
@@ -105,12 +68,12 @@ td {
 
 <h1>NTMS Azure Global App 3D Image Gallery</h1>
 
-<div id="cdn-info" class="server">
+<div class="server">
 Served by: {{{SERVER_NAME}}}<br>
 Location: {{{LOCATION}}}
 </div>
 
-<div id="cache-status">Cache Status: Checking...</div>
+<div id="cache-status">Checking cache...</div>
 
 <div class="dashboard">
     <div class="chart-container">
@@ -119,12 +82,7 @@ Location: {{{LOCATION}}}
     <div class="table-container">
         <table>
             <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Image</th>
-                    <th>Cache</th>
-                    <th>Raw</th>
-                </tr>
+                <tr><th>#</th><th>Image</th><th>Cache</th><th>Raw</th></tr>
             </thead>
             <tbody id="table-body"></tbody>
         </table>
@@ -135,8 +93,6 @@ Location: {{{LOCATION}}}
 
 <script>
 const imageCount = 15;
-const gallery = document.getElementById("gallery");
-const tableBody = document.getElementById("table-body");
 let chart;
 
 function initChart() {
@@ -148,51 +104,33 @@ function initChart() {
                 { label: 'Cache (ms)', backgroundColor: '#2e7d32', data: [] },
                 { label: 'Raw (ms)', backgroundColor: '#0277bd', data: [] }
             ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false
         }
     });
 }
 
 async function checkCache() {
     try {
-        const res = await fetch(window.location.href, {
-            method: 'HEAD',
-            cache: 'no-store'
-        });
+        const res = await fetch(window.location.href, { method: 'HEAD', cache: 'no-store' });
 
         const xCache = res.headers.get('x-cache');
+        const xCacheInfo = res.headers.get('x-cache-info');
         const azureRef = res.headers.get('x-azure-ref');
 
-        let status = "UNKNOWN";
-
-        if (xCache) {
-            status = xCache;
-        } else if (!azureRef) {
-            status = "BROWSER CACHE";
-        } else {
-            status = "NO CACHE HEADER";
-        }
+        let status = xCache || "UNKNOWN";
 
         const el = document.getElementById('cache-status');
 
         el.innerHTML = `
-            Cache Status: ${status}<br>
+            Cache: ${status}<br>
+            Cache Layer: ${xCacheInfo || "N/A"}<br>
             AFD Ref: ${azureRef || "N/A"}
         `;
 
-        // Color coding
-        if (status.includes("HIT")) {
-            el.style.color = "green";
-        } else if (status.includes("MISS")) {
-            el.style.color = "red";
-        } else {
-            el.style.color = "orange";
-        }
+        if (status.includes("HIT")) el.style.color = "green";
+        else if (status.includes("MISS")) el.style.color = "red";
+        else el.style.color = "orange";
 
-    } catch (e) {
+    } catch {
         document.getElementById('cache-status').innerText = "Cache Status: ERROR";
     }
 }
@@ -201,51 +139,25 @@ async function runTest() {
     for (let i = 1; i <= imageCount; i++) {
         const name = `image-${i}.jpg`;
 
-        try {
-            // Cached request
-            const t0 = performance.now();
-            await new Promise(r => {
-                const img = new Image();
-                img.src = `/images/${name}`;
-                img.onload = r;
-            });
-            const cT = (performance.now() - t0).toFixed(2);
+        const t0 = performance.now();
+        await new Promise(r => { let img = new Image(); img.src = `/images/${name}`; img.onload = r; });
+        const cT = (performance.now() - t0).toFixed(2);
 
-            // Raw request (bypass cache)
-            const t1 = performance.now();
-            await new Promise(r => {
-                const img = new Image();
-                img.src = `/images/${name}?nocache=${Date.now()}`;
-                img.onload = r;
-            });
-            const rT = (performance.now() - t1).toFixed(2);
+        const t1 = performance.now();
+        await new Promise(r => { let img = new Image(); img.src = `/images/${name}?nocache=${Date.now()}`; img.onload = r; });
+        const rT = (performance.now() - t1).toFixed(2);
 
-            // Table update
-            const row = tableBody.insertRow();
-            row.style.background = "#e7f9e1";
-            row.innerHTML = `
-                <td>${i}</td>
-                <td>${name}</td>
-                <td>${cT}ms</td>
-                <td>${rT}ms</td>
-            `;
+        document.getElementById("table-body").innerHTML +=
+            `<tr><td>${i}</td><td>${name}</td><td>${cT}ms</td><td>${rT}ms</td></tr>`;
 
-            // Chart update
-            chart.data.labels.push(i);
-            chart.data.datasets[0].data.push(cT);
-            chart.data.datasets[1].data.push(rT);
-            chart.update();
+        chart.data.labels.push(i);
+        chart.data.datasets[0].data.push(cT);
+        chart.data.datasets[1].data.push(rT);
+        chart.update();
 
-            // Gallery update
-            const card = document.createElement("div");
-            card.className = "card";
-            card.innerHTML = `
-                <img src="/images/${name}">
-                <div class="info">${cT}ms (cache) | ${rT}ms (raw)</div>
-            `;
-            gallery.appendChild(card);
-
-        } catch (e) {}
+        document.getElementById("gallery").innerHTML +=
+            `<div class="card"><img src="/images/${name}">
+             <div class="info">${cT}ms (cache) | ${rT}ms (raw)</div></div>`;
     }
 }
 
