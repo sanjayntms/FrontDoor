@@ -145,7 +145,7 @@ jobs:
                add_header 'Access-Control-Allow-Headers' 'Content-Type';
 
                # 🔥 VERY IMPORTANT for your JS (to read X-Cache)
-               add_header 'Access-Control-Expose-Headers' 'x-cache, x-azure-ref';
+               add_header 'Access-Control-Expose-Headers' 'x-cache, x-cache-info, x-azure-ref';
                     }
                }
           NGINX
