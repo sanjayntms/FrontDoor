@@ -121,34 +121,34 @@ jobs:
 
               echo "📝 Writing nginx cache config..."
               sudo tee /etc/nginx/conf.d/cache_images.conf > /dev/null <<'NGINX'
-              server {
+               server {
                      listen 80;
                      server_name localhost;
 
-              # 🔥 Enable validation support
-              etag on;
+               # 🔥 Enable validation support
+               etag on;
 
-              location /images/ {
-              root /var/www/html;
+               location /images/ {
+               root /var/www/html;
 
-              # ✅ Smart caching (always revalidate)
+               # ✅ Smart caching (always revalidate)
                add_header Cache-Control "no-cache, must-revalidate";
 
-              # Optional but useful for debugging CDN behavior
-              add_header Pragma "no-cache";
+               # Optional but useful for debugging CDN behavior
+               add_header Pragma "no-cache";
 
-              access_log off;
+               access_log off;
 
-              # CORS (for your frontend + header visibility)
-              add_header 'Access-Control-Allow-Origin' '*';
-              add_header 'Access-Control-Allow-Methods' 'GET';
-              add_header 'Access-Control-Allow-Headers' 'Content-Type';
+               # CORS (for your frontend + header visibility)
+               add_header 'Access-Control-Allow-Origin' '*';
+               add_header 'Access-Control-Allow-Methods' 'GET';
+               add_header 'Access-Control-Allow-Headers' 'Content-Type';
 
-              # 🔥 VERY IMPORTANT for your JS (to read X-Cache)
-              add_header 'Access-Control-Expose-Headers' 'x-cache, x-azure-ref';
-                   }
-              }
-              NGINX
+               # 🔥 VERY IMPORTANT for your JS (to read X-Cache)
+               add_header 'Access-Control-Expose-Headers' 'x-cache, x-azure-ref';
+                    }
+               }
+          NGINX
 
 
 
