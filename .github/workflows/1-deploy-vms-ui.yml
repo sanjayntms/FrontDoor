@@ -47,7 +47,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      
+      - name: Create VM (idempotent)
+        run: |
+          if ! az vm show --name ${{ matrix.VM_NAME }} --resource-group $RESOURCE_GROUP &>/dev/null; then
+            az vm create \
+              --resource-group $RESOURCE_GROUP \
+              --name ${{ matrix.VM_NAME }} \
+              --image $IMAGE \
+              --admin-username $ADMIN_USERNAME \
+              --admin-password $VM_PASSWORD \
+              --location ${{ matrix.LOCATION }} \
+              --size $VM_SIZE \
+              --public-ip-sku Standard \
+              --authentication-type password \
+              --nsg-rule SSH
+          fi
+
+          az vm open-port --port 80 --resource-group $RESOURCE_GROUP --name ${{ matrix.VM_NAME }}
+
       - name: Install sshpass
         run: sudo apt-get update && sudo apt-get install -y sshpass
 
