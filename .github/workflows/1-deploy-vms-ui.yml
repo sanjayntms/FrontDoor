@@ -97,5 +97,5 @@ jobs:
               set -e
               # ... (rest of your existing Nginx/Setup script) ...
               echo "🎉 Deployment successful on \$(hostname)"
-EOF
+          EOF
           done
