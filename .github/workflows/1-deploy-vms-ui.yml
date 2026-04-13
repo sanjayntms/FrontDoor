@@ -6,7 +6,7 @@ on:
 env:
   RESOURCE_GROUP: GlobalApp-rg
   IMAGE: Ubuntu2204
-  VM_SIZE: Standard_Ds1_v2
+  VM_SIZE: Standard_B1s
   ADMIN_USERNAME: azureuser
   VM_PASSWORD: ${{ secrets.VM_PASSWORD }}
 
